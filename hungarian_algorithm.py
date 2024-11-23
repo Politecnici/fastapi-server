@@ -1,168 +1,142 @@
 import numpy as np
+import math
+import random
+import matplotlib.pyplot as plt
+import time
+from scipy.optimize import linear_sum_assignment
 
-class HungarianAlg(object):
+random.seed(42)
+
+GRID_HEIGHT = 100
+GRID_WIDTH = 100
+
+TAXI_NUMBER = 5
+CUSTOMER_NUMBER = 20
+
+
+class Taxi():
+    def __init__(self, id, x, y):
+        self.id = id
+        self.x = x
+        self.y = y
+        self.available = True
+
+class Customer():
+    def __init__(self, id, coordX, coordY, destinationX, destinationY):
+        self.id = id
+        self.coordX = coordX
+        self.coordY = coordY
+        self.destinationX = destinationX
+        self.destinationY = destinationY
+        self.awaitingService = True
+
+# helper functions
+
+def get_distance(taxi, customer):
+    x0 = (taxi.x - customer.coordX) ** 2
+    x1 = (taxi.y - customer.coordY) ** 2
+    return math.sqrt(x0 + x1)
+
+# Plot the initial state
+def plot_state(taxis, customers, step, assignments=None):
+    plt.figure(figsize=(10, 10))
+    plt.xlim(0, GRID_WIDTH)
+    plt.ylim(0, GRID_HEIGHT)
+    
+    # Plot taxis
+    taxi_x, taxi_y = zip(*taxis)
+    plt.scatter(taxi_x, taxi_y, c='blue', marker='s', label='Taxis')
+    
+    # Plot customers
+    if customers:
+        customer_x, customer_y = zip(*customers)
+        plt.scatter(customer_x, customer_y, c='red', marker='o', label='Customers')
+    
+    # Plot assignments (arrows from taxis to customers)
+    if assignments:
+        for taxi, customer, new_taxi_position in assignments:
+            # Arrow from taxi to customer (initial assignment)
+            plt.arrow(taxi[0], taxi[1], customer[0] - taxi[0], customer[1] - taxi[1], 
+                      head_width=1.5, head_length=2, fc='green', ec='green', linestyle='dotted', length_includes_head=True)
+            
+            # Arrow from customer to new taxi position (different color)
+            plt.arrow(customer[0], customer[1], new_taxi_position[0] - customer[0], new_taxi_position[1] - customer[1], 
+                      head_width=1.5, head_length=2, fc='orange', ec='orange', linestyle='solid', length_includes_head=True)
+    
+    plt.title(f"Step {step}: Taxis and Customers")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'step_{step}.png')
+    plt.close()
+
+
+
+def run_simulation():
+
+    taxi_list = []
+    waiting_customer_list = []
+
+    # Fill lists with random values inside the grid
+    for i in range(TAXI_NUMBER):
+        # create taxi object
+        taxi = Taxi("t"+str(i), random.randint(0, GRID_WIDTH), random.randint(0, GRID_HEIGHT))
+        taxi_list.append(taxi)
+
+    for i in range(CUSTOMER_NUMBER):
+        # create customer object
+        customer = Customer("c"+str(i), random.randint(0, GRID_WIDTH), random.randint(0, GRID_HEIGHT), random.randint(0, GRID_WIDTH), random.randint(0, GRID_HEIGHT))
+        waiting_customer_list.append(customer)
+
+    # Simulation loop
+    step = 0
+    tripsCounter = 0
+    totalDistance = 0
+
+    # start timer
+    start = time.time()
+
+    while len(waiting_customer_list) > 0:
+
+        # create a np matrix of distances. Rows: len(waiting_customer_list), Columns: len(available_taxi_list)
+        cost_matrix = np.zeros((len(waiting_customer_list), len(taxi_list)))
+
+        for i, customer in enumerate(waiting_customer_list):
+            for j, taxi in enumerate(taxi_list):
+                cost_matrix[i, j] = get_distance(taxi, customer)
+
+        # Pad the matrix with zeros
+        rows, cols = cost_matrix.shape
+        if rows < cols:
+            cost_matrix = np.vstack([cost_matrix, np.zeros((cols - rows, cols))])
+        elif rows > cols:
+            cost_matrix = np.hstack([cost_matrix, np.zeros((rows, rows - cols))])
+
+        # Apply the Hungarian algorithm
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+        # Filter out dummy assignments (if any)
+        assignments = [(r, c) for r, c in zip(row_ind, col_ind) if r < rows and c < cols]
+
+        # Output the result
+        print(f"Step {step}: Assignments: {assignments}")
+
+        # tell which customer is assigned to which taxi
+        for r, c in assignments:
+            print(f"Customer {waiting_customer_list[r].id} assigned to Taxi {taxi_list[c].id}")
         
-    def __init__(self, cost_matrix):
-        '''
-        This creates a HungarianAlg object with the cost matrix associated to it. It stores a copy of the matrix as well as the original.
-        It then records the shape and initiates some helper variables, like the covers for the rows and columns and the markings.
-        '''
-        self.O = cost_matrix
-        self.C = cost_matrix.copy(deep=True)
-        self.n, self.m = self.C.shape
-        self.row_covered = np.zeros(self.n, dtype=bool)
-        self.col_covered = np.zeros(self.m, dtype=bool)
-        self.marked = np.zeros((self.n, self.m), dtype=int)
+        # move the taxis to the new customer position
+        for r, c in assignments:
+            taxi_list[c].x = waiting_customer_list[r].coordX
+            taxi_list[c].y = waiting_customer_list[r].coordY
 
-    def _clear_covers(self):
-        '''
-        This clears any covers, as they can change meaning from one step to another
-        '''
-        self.row_covered[:] = False
-        self.col_covered[:] = False
-    
-    def _clear_marks(self):
-        '''
-        Clears marks when trying new solutions
-        '''
-        self.marked[:,:] = 0
+        # remove the assigned customers from the list
+        waiting_customer_list = [customer for i, customer in enumerate(waiting_customer_list) if i not in [r for r, c in assignments]]
 
-    def solve(self):
-        '''
-        This chooses an initial step for the process and then begins following the appropriate steps.
-        It saves the assignment solution to self.solution and the final cost found to self.minimum_cost.
-        '''
-        initial_step = _step0
-        if(self.n==self.m):
-            initial_step = _step1
+        # Plot the state
+        plot_state([(taxi.x, taxi.y) for taxi in taxi_list], [(customer.coordX, customer.coordY) for customer in waiting_customer_list], step, [(taxi_list[c].x, taxi_list[c].y) for r, c in assignments])
 
-        step = initial_step
 
-        while type(step) is not tuple:
-            step = step(self)
 
-        if(step[0]):
-            self.solution = step[2]
-            self.minimum_cost = step[1]
-        return step[0]
 
-    def print_results(self):
-        '''
-        Just a pretty print for the results
-        '''
-        if self.solution == None:
-            raise Exception("No solution was computed yet or there is no solution. Run the solve method or try another cost matrix.")
-        for k,v in self.solution.items():
-            print("For {} is assignes {}".format(v,k))
-        print("The final total cost was {}".format(self.minimum_cost))
 
-def _step0(state):
-    '''
-    This step pads the matrix so that it's squared
-    '''
-    matrix_size = max(state.n, state.m)
-    pad_columns = matrix_size - state.n
-    pad_rows = matrix_size - state.m
-    state.C = np.pad(state.C, ((0,pad_columns),(0,pad_rows)), 'constant', constant_values=(0))
-    
-    state.row_covered = np.zeros(state.C.shape[0], dtype=bool)
-    state.col_covered = np.zeros(state.C.shape[1], dtype=bool)
-    state.marked = np.zeros((state.C.shape[0], state.C.shape[1]), dtype=int)
-    return _step1
-
-def _step1(state):
-    '''
-    Subtracts the minimum value per column for each cell of that column
-    '''
-    state.C = state.C - np.min(state.C,axis=1)[:,np.newaxis]
-    return _step2
-
-def _step2(state):
-    '''
-    Subtracts the minimum value per row for each cell of that row
-    '''
-    state.C = state.C - np.min(state.C,axis=0)[np.newaxis,:]
-    return _step3
-
-def _step3(state):
-    '''
-    This step tries to find a coverage of all zeroes in the matrix using the minimum amount of row/column covers.
-    It then uses this coverage to check for a solution. If one is found, the algorithm stops. Otherwise, it goes to step 4 and back to step 3.
-    '''
-    row_marked = np.zeros(state.C.shape[0], dtype=bool)
-    col_marked = np.zeros(state.C.shape[1], dtype=bool)
-    
-    for j in range(state.C.shape[1]):
-        for i in range(state.C.shape[0]):
-            if(not state.row_covered[i] and not state.col_covered[j] and state.C[i][j]==0):
-                state.marked[i][j] = 1
-                state.row_covered[i] = True
-                state.col_covered[j] = True
-                
-    state._clear_covers()
-    
-    for i in range(state.C.shape[0]):
-        if np.sum(state.marked[i,:])==0:
-            row_marked[i] = True
-            for j in range(state.C.shape[1]):
-                if not col_marked[j] and state.C[i][j] ==0:
-                    col_marked[j] = True
-                    for k in range(state.C.shape[0]):
-                        if not row_marked[k] and state.marked[k][j]==1:
-                            row_marked[k]=True
-    
-    state.row_covered = np.logical_not(row_marked)
-    state.col_covered = col_marked
-    num_lines = np.sum(state.row_covered) + np.sum(state.col_covered)
-    
-    if num_lines == state.C.shape[0]:
-        sol = _check_for_solution(state)
-        return sol
-    else:
-        return _step4
-
-def _step4(state):
-    '''
-    If no solution was found in step 3, this step changes some values in the matrix so that we may now find some coverage.
-    The algorithm may be stuck in a step 3 - step 4 loop. If it happens, there is no solution or the wrong matrix was given.
-    '''
-    smallest_uncovered = np.inf
-    for i in range(state.C.shape[0]):
-        for j in range(state.C.shape[1]):
-            if not state.row_covered[i] and \
-               not state.col_covered[j] and \
-               state.C[i][j] < smallest_uncovered:
-                smallest_uncovered = state.C[i][j]
-                
-    for i in range(state.C.shape[0]):
-        for j in range(state.C.shape[1]):
-            if not state.row_covered[i] and not state.col_covered[j]:
-                state.C[i][j] -= smallest_uncovered
-            elif state.row_covered[i] and state.col_covered[j]:
-                state.C[i][j] += smallest_uncovered
-                
-    state._clear_covers()
-    state._clear_marks()
-    return _step3
-
-def _check_for_solution(state):
-    '''
-    This method uses the coverage of the cost matrix to try and find a solution.
-    '''
-    for j in range(state.C.shape[1]):
-        for i in range(state.C.shape[0]):
-            if(not state.row_covered[i] and not state.col_covered[j] and state.C[i][j]==0):
-                state.marked[i][j] = 1
-                state.row_covered[i] = True
-                state.col_covered[j] = True
-    sol = {}
-    cost = 0
-    for i in range(state.n):
-        for j in range(state.m):
-            if(state.marked[i][j]==1):
-                sol[j] = i
-                cost = cost + state.O[i][j]
-                
-    state._clear_covers()
-
-    return len(sol)==state.m, cost, sol
+run_simulation()

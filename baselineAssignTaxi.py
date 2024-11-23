@@ -8,8 +8,8 @@ random.seed(42)
 GRID_HEIGHT = 100
 GRID_WIDTH = 100
 
-TAXI_NUMBER = 500
-CUSTOMER_NUMBER = 3000
+TAXI_NUMBER = 5
+CUSTOMER_NUMBER = 20
 
 # parameters for space quantization
 nYcells = 10
@@ -28,10 +28,6 @@ def get_distance(taxi_pos, customer_start_pos):
     x1 = (taxi_pos[1] - customer_start_pos[1]) ** 2
     return math.sqrt(x0 + x1)
 
-def getTaxiCell(taxi_pos):
-    xCell = int(math.floor(taxi_pos[0]/cellWidth))
-    yCell = int(math.floor(taxi_pos[1]/cellHeight))
-    return (xCell, yCell)
 def getTaxiCell(taxi_pos):
     xCell = int(math.floor(taxi_pos[0]/cellWidth))
     yCell = int(math.floor(taxi_pos[1]/cellHeight))
