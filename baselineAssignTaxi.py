@@ -32,6 +32,10 @@ def getTaxiCell(taxi_pos):
     xCell = int(math.floor(taxi_pos[0]/cellWidth))
     yCell = int(math.floor(taxi_pos[1]/cellHeight))
     return (xCell, yCell)
+def getTaxiCell(taxi_pos):
+    xCell = int(math.floor(taxi_pos[0]/cellWidth))
+    yCell = int(math.floor(taxi_pos[1]/cellHeight))
+    return (xCell, yCell)
 
 # Plot the initial state
 def plot_state(taxis, customers, step, assignments=None):
