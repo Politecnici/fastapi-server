@@ -19,6 +19,7 @@ class Vehicle(BaseModel):
     remainingTravelTime: int
     vehicleSpeed: int
     isAvailable: bool
+    customerId: str
 
 class Scenario(BaseModel):
     id: str
@@ -31,3 +32,9 @@ class Scenario(BaseModel):
 class ScenarioParameters(BaseModel):
     vehicles: int
     customers: int
+
+class Event(BaseModel):
+    vehicleId: str
+    customerId: str
+    eventType: str
+    eta: int

@@ -4,14 +4,38 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from sse_starlette.sse import EventSourceResponse
 from requests import request
+import json
+import logging
 
-from models import Customer, Vehicle, Scenario, ScenarioParameters
+from assignTaxi import baseline_assign_vehicle_to_customer
+from models import Customer, Vehicle, Scenario, ScenarioParameters, Event
 from runner import main_loop
+
+events = []
 
 vehicles = []
 
 customers = []
 
+logger = logging.getLogger('uvicorn.error')
+
+
+async def main_loop():
+    while True:
+        logger.info("ping")
+        baseline_assign_vehicle_to_customer(vehicles, customers, events)
+        await asyncio.sleep(1)  # Non-blocking sleep for 1 second
+
+def dropoff(vehicle, vehicle_id):
+    if vehicle.id == vehicle_id:
+        vehicle.isAvailable = True
+        vehicle.customerId = None
+
+async def finished_trip(vehicle_id, customer_id, delay):
+    await asyncio.sleep(delay)
+    customers = [customer for customer in customers if customer.id != customer_id]
+    map(lambda vehicle: dropoff(vehicle), vehicles)
+    events.append(Event(vehicleId=vehicle_id, customerId=customer_id, eventType='dropoff', eta=0))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,8 +68,8 @@ RETRY_TIMEOUT = 15000  # milisecond
 @app.get('/events')
 async def message_stream(request: Request):
     def new_messages():
+        yield events
         
-        yield 'Hello World'
     async def event_generator():
         while True:
             # If client closes connection, stop sending events
@@ -54,12 +78,8 @@ async def message_stream(request: Request):
 
             # Checks for new messages and return them to client if any
             if new_messages():
-                yield {
-                        "event": "new_message",
-                        "id": "message_id",
-                        "retry": RETRY_TIMEOUT,
-                        "data": "message_content"
-                }
+                for event in events:
+                    json.dumps(event)
 
             await asyncio.sleep(STREAM_DELAY)
 
