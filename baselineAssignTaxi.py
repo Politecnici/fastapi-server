@@ -3,13 +3,13 @@ import random
 import matplotlib.pyplot as plt
 import time
 
-random.seed(42)
+random.seed(10)
 
 GRID_HEIGHT = 100
 GRID_WIDTH = 100
 
-TAXI_NUMBER = 5
-CUSTOMER_NUMBER = 20
+TAXI_NUMBER = 50
+CUSTOMER_NUMBER = 300
 
 # parameters for space quantization
 nYcells = 10
@@ -190,6 +190,8 @@ def run_simulation():
                 tripDistance = distToCustomer + get_distance(new_taxi_position, customer)
                 totalDistance += tripDistance
 
+
+
                 # print(f"Trip distance: {tripDistance}")
                 # print(f"Total distance: {totalDistance}")
                 # print(f"Trips counter: {tripsCounter}")
@@ -197,6 +199,8 @@ def run_simulation():
 
                 # Update trips counter
                 tripsCounter += 1
+        print(f"Total distance: {totalDistance}")
+
 
         
         # Plot new state with all assignments for this step
@@ -215,5 +219,5 @@ def run_simulation():
 
 # run the simulation
 if __name__ == "__main__":
-    for i in range(10):
+    for i in range(1):
         run_simulation()
