@@ -1,51 +1,27 @@
-import logging
 from contextlib import asynccontextmanager
-from typing import List
 import asyncio
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from requests import request
+
+from models import Customer, Vehicle, Scenario, ScenarioParameters
+from runner import main_loop
 
 vehicles = []
 
 customers = []
-app = FastAPI()
-
-logger = logging.getLogger('uvicorn.error')
 
 
-class Customer(BaseModel):
-    id: str
-    coordX: int
-    coordY: int
-    destinationX: int
-    destinationY: int
-    awaitingService: bool
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Run at startup
+    asyncio.create_task(main_loop())
+    yield
+    # Run on shutdown (if required)
+    print('Shutting down...')
 
-class Vehicle(BaseModel):
-    id: str
-    coordX: int
-    coordY: int
-    activeTime: int
-    distanceTravelled: int
-    numberOfTrips: int
-    remainingTravelTime: int
-    vehicleSpeed: int
-    isAvailable: bool
-
-class Scenario(BaseModel):
-    id: str
-    startTime: str
-    endTime: str
-    status: str
-    vehicles: List[Vehicle]
-    customers: List[Customer]
-    
-class ScenarioParameters(BaseModel):
-    vehicles: int
-    customers: int
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -89,13 +65,7 @@ async def message_stream(request: Request):
 
     return EventSourceResponse(event_generator())
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    asyncio.create_task(main_loop())
 
-async def main_loop():
-    while True:
-        logger.info("kek")
 
 @app.post("/scenario/start")
 def read_item(scenario_parameters: ScenarioParameters):
