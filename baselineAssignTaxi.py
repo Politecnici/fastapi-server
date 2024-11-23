@@ -8,8 +8,8 @@ random.seed(42)
 GRID_HEIGHT = 100
 GRID_WIDTH = 100
 
-TAXI_NUMBER = 50
-CUSTOMER_NUMBER = 300
+TAXI_NUMBER = 500
+CUSTOMER_NUMBER = 3000
 
 # parameters for space quantization
 nYcells = 10
@@ -19,8 +19,7 @@ nXcells = 10
 cellWidth = GRID_WIDTH/nXcells
 cellHeight = GRID_HEIGHT/nYcells
 
-available_taxi_list = []
-waiting_customer_list = []
+
 
 # helper functions
 
@@ -66,37 +65,8 @@ def plot_state(taxis, customers, step, assignments=None):
     plt.savefig(f'step_{step}.png')
     plt.close()
 
-# Fill lists with random values inside the grid
-for i in range(TAXI_NUMBER):
-    available_taxi_list.append([random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1)])
-
-for i in range(CUSTOMER_NUMBER):
-    waiting_customer_list.append([random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1)])
-
-# assign each customer to a cell - used only for space quantization
-
-customerCells = {}
-
-for customer in waiting_customer_list:
-    xCell = math.floor(customer[0]/cellWidth)
-    yCell = math.floor(customer[1]/cellHeight)
-    if (xCell, yCell) in customerCells:
-        customerCells[(xCell, yCell)].append(customer)
-    else:
-        customerCells[(xCell, yCell)] = [customer]
-
-# for all keys print list
-for key in customerCells:
-    print(key, ' : ', customerCells[key])
-
-# Simulation loop
-step = 0
-tripsCounter = 0
-totalDistance = 0
-
-
 # 1. Assign the closest customer to each taxi
-def baseline_assign_customer_to_taxi(taxi):
+def baseline_assign_customer_to_taxi(taxi, waiting_customer_list):
 
     min_distance = float('inf')
     min_customer = None
@@ -110,7 +80,7 @@ def baseline_assign_customer_to_taxi(taxi):
 
     return min_customer, min_distance
 
-def space_quantization_assign_customer_to_taxi(taxi):
+def space_quantization_assign_customer_to_taxi(taxi, customerCells):
 
     # Get the cell of the taxi
     taxiCell = getTaxiCell(taxi)
@@ -150,58 +120,100 @@ def space_quantization_assign_customer_to_taxi(taxi):
 
     return min_customer, min_distance
 
-# start timer
-start = time.time()
 
-while len(waiting_customer_list) > 0:
-    # print(f"Step {step}")
-    
-    assignments = []
-    for taxi in available_taxi_list[:]:  # Iterate over a copy of the list
-        if len(waiting_customer_list) == 0:
-            break
 
-        tripDistance = 0
+# Main simulation loop
+def run_simulation():
+
+    available_taxi_list = []
+    waiting_customer_list = []
+
+    # Fill lists with random values inside the grid
+    for i in range(TAXI_NUMBER):
+        available_taxi_list.append([random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1)])
+
+    for i in range(CUSTOMER_NUMBER):
+        waiting_customer_list.append([random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1)])
+
+
+    # assign each customer to a cell - used only for space quantization
+
+    customerCells = {}
+
+    for customer in waiting_customer_list:
+        xCell = math.floor(customer[0]/cellWidth)
+        yCell = math.floor(customer[1]/cellHeight)
+        if (xCell, yCell) in customerCells:
+            customerCells[(xCell, yCell)].append(customer)
+        else:
+            customerCells[(xCell, yCell)] = [customer]
+
+    # for all keys print list
+    # for key in customerCells:
+    #     print(key, ' : ', customerCells[key])
+
+    # Simulation loop
+    step = 0
+    tripsCounter = 0
+    totalDistance = 0
+
+    # start timer
+    start = time.time()
+
+    while len(waiting_customer_list) > 0:
+        # print(f"Step {step}")
+
+        assignments = []
+        for taxi in available_taxi_list[:]:  # Iterate over a copy of the list
+            if len(waiting_customer_list) == 0:
+                break
+
+            tripDistance = 0
+            
+            customer, distToCustomer = baseline_assign_customer_to_taxi(taxi, waiting_customer_list)
+
+            # customer, distToCustomer = space_quantization_assign_customer_to_taxi(taxi, customerCells)
+
+            # Assign customer to taxi
+            if customer:
+                # print(f"Taxi at {taxi} assigned to customer at {customer}")
+                waiting_customer_list.remove(customer)
+
+                # Move taxi to a new random position
+                new_taxi_position = [random.randint(0, GRID_WIDTH), random.randint(0, GRID_HEIGHT)]
+                assignments.append((taxi, customer, new_taxi_position))
+                available_taxi_list[available_taxi_list.index(taxi)] = new_taxi_position
+                # print(f"Taxi moved to {new_taxi_position}")
+                # print(f"Remaining customers: {len(waiting_customer_list)}")
+
+                # Update total distance
+                tripDistance = distToCustomer + get_distance(new_taxi_position, customer)
+                totalDistance += tripDistance
+
+                # print(f"Trip distance: {tripDistance}")
+                # print(f"Total distance: {totalDistance}")
+                # print(f"Trips counter: {tripsCounter}")
+                # print("\n")
+
+                # Update trips counter
+                tripsCounter += 1
+
         
-        # customer, distToCustomer = baseline_assign_customer_to_taxi(taxi)
+        # Plot new state with all assignments for this step
+        plot_state(available_taxi_list, waiting_customer_list, step, assignments)
+        step += 1
 
-        customer, distToCustomer = space_quantization_assign_customer_to_taxi(taxi)
+    # end timer
+    end = time.time()
 
-        # Assign customer to taxi
-        if customer:
-            # print(f"Taxi at {taxi} assigned to customer at {customer}")
-            waiting_customer_list.remove(customer)
+    print(f"Total trips: {tripsCounter}")
+    print(f"Total time: {end - start}")
+    print(f"Total distance: {totalDistance}")
 
-            # Move taxi to a new random position
-            new_taxi_position = [random.randint(0, GRID_WIDTH), random.randint(0, GRID_HEIGHT)]
-            assignments.append((taxi, customer, new_taxi_position))
-            available_taxi_list[available_taxi_list.index(taxi)] = new_taxi_position
-            # print(f"Taxi moved to {new_taxi_position}")
-            # print(f"Remaining customers: {len(waiting_customer_list)}")
+    # print(waiting_customer_list)
+    # print(customerCells)
 
-            # Update total distance
-            tripDistance = distToCustomer + get_distance(new_taxi_position, customer)
-            totalDistance += tripDistance
-
-            # print(f"Trip distance: {tripDistance}")
-            # print(f"Total distance: {totalDistance}")
-            # print(f"Trips counter: {tripsCounter}")
-            # print("\n")
-
-            # Update trips counter
-            tripsCounter += 1
-
-    
-    # Plot new state with all assignments for this step
-    plot_state(available_taxi_list, waiting_customer_list, step, assignments)
-    step += 1
-
-# end timer
-end = time.time()
-
-print(f"Total trips: {tripsCounter}")
-print(f"Total time: {end - start}")
-print(f"Total distance: {totalDistance}")
-
-print(waiting_customer_list)
-print(customerCells)
+# run the simulation
+if __name__ == "__main__":
+    for i in range(10):
+        run_simulation()
