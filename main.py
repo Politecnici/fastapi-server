@@ -141,12 +141,9 @@ async def message_stream(request: Request):
             if await request.is_disconnected():
                 break
             if new_messages():
-                temp_sse_events = []
                 for sse_event in sse_events:
-                    temp_sse_events.append({"vehicle": sse_event.vehicle, "event_type": sse_event.event_type})
-                yield {
-                    "events": sse_events
-                }
+                    yield json.dumps({"vehicle": sse_event.vehicle, "event_type": sse_event.event_type})
+
             await asyncio.sleep(1)
     return EventSourceResponse(event_generator())
 
