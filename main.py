@@ -66,6 +66,9 @@ async def finished_trip(vehicle_id, customer_id, delay):
     logger.info(f"Customer {customer_id} has been dropped off")
     for vehicle in vehicles:
         if vehicle.get('id') == vehicle_id:
+            update_scenario_response = request("PUT", f"http://localhost:8090/Scenarios/update_scenario/{scenario_id}",
+                                               json={"vehicles": [{"id": vehicle.get('id'), "customerId": ""}]})
+            print( "FINISHED" + update_scenario_response.json())
             sse_events.append(SseEvents(vehicle=vehicle, event_type="dropoff"))
             vehicle['isAvailable'] = True
             vehicle['customerId'] = None
@@ -111,10 +114,12 @@ def handle_runner_events():
     global runner_events, vehicles, sse_events
     if runner_events:
         temp_vehicles_list = []
-        for event in runner_events:
+        for index, event in enumerate(runner_events):
             temp_vehicles_list.append({"id": event.vehicleId, "customerId": event.customerId})
+            runner_events.pop(index)
         update_scenario_response = request("PUT", f"http://localhost:8090/Scenarios/update_scenario/{scenario_id}",
                                            json={"vehicles": temp_vehicles_list})
+        print(update_scenario_response.json())
         for updated_vehicle in update_scenario_response.json()['updatedVehicles']:
             for vehicle in vehicles:
                 if vehicle['id'] == updated_vehicle['id']:
