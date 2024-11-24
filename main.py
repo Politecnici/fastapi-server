@@ -135,14 +135,16 @@ def handle_runner_events():
 async def message_stream(request: Request):
     global sse_events
     def new_messages():
-        yield sse_events
+        yield  len(sse_events) > 0
     async def event_generator():
         while True:
             if await request.is_disconnected():
                 break
             if new_messages():
-                for sse_event in sse_events:
-                    yield json.dumps({"vehicle": sse_event.vehicle, "event_type": sse_event.event_type})
+                for index, sse_event in enumerate(sse_events):
+                    event = json.dumps({"vehicle": sse_event.vehicle, "event_type": sse_event.event_type})
+                    sse_events.pop(index)
+                    yield event
 
             await asyncio.sleep(1)
     return EventSourceResponse(event_generator())
