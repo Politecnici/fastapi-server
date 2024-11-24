@@ -14,26 +14,24 @@ def get_distance(p0, q0):
 
 # Assign the closest customer to each taxi
 def baseline_assign_vehicle_to_customer():
+    if main.vehicles and main.customers:
+        for vehicle in main.vehicles:
+            # can be improved by considering full vehicle list
+            if vehicle.get('isAvailable'):
 
-    if not main.vehicles or not main.customers:
-        return
-    for vehicle in main.vehicles:
-        # can be improved by considering full vehicle list
-        if vehicle.get('isAvailable'):
+                min_distance = float('inf')
+                min_customer = None
 
-            min_distance = float('inf')
-            min_customer = None
-
-            # Find the closest customer
-            for customer in main.customers:
-                if customer.get('awaitingService'):
-                    distance = get_distance((vehicle.get('coordX'), vehicle.get('coordY')), (customer.get('coordX'), customer.get('coordY')))
-                    if distance < min_distance:
-                        min_distance = distance
-                        min_customer = customer
-
-            vehicle['customerId'] = min_customer.get('id')
-            vehicle['isAvailable'] =  False
-            min_customer['awaitingService'] = False
-            main.runner_events.append(RunnerEvent(vehicleId=vehicle.get('id'), customerId=min_customer.get('id')))
-            logger.info(f"Taxi {vehicle.get('id')} picked customer {min_customer.get('id')}")
+                # Find the closest customer
+                for customer in main.customers:
+                    if customer.get('awaitingService'):
+                        distance = get_distance((vehicle.get('coordX'), vehicle.get('coordY')), (customer.get('coordX'), customer.get('coordY')))
+                        if distance < min_distance:
+                            min_distance = distance
+                            min_customer = customer
+                if min_customer:
+                    vehicle['customerId'] = min_customer.get('id')
+                    vehicle['isAvailable'] =  False
+                    min_customer['awaitingService'] = False
+                    main.runner_events.append(RunnerEvent(vehicleId=vehicle.get('id'), customerId=min_customer.get('id')))
+                    logger.info(f"Taxi {vehicle.get('id')} picked customer {min_customer.get('id')}")

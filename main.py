@@ -39,9 +39,9 @@ async def main_loop():
         logger.debug(f"Vehicles {vehicles}")
         logger.debug(f"Customers {customers}")
         logger.debug(f"runner_events {runner_events}")
+        confirm_runner_termination()
         baseline_assign_vehicle_to_customer()
         handle_runner_events()
-        confirm_runner_termination()
         await asyncio.sleep(0.2)
 
 
@@ -51,16 +51,6 @@ def confirm_runner_termination():
         sse_events.append(SseEvents(vehicle={}, event_type="finish"))
         past_scenarios.add(scenario_id)
         print("Scenario finished")
-
-
-def dropoff(vehicle, vehicle_id, customer_coordX, customer_coordY):
-    global sse_events
-    sse_events.append(SseEvents(vehicle=vehicle, event_type="dropoff"))
-    if vehicle.get('id') == vehicle_id:
-        vehicle['isAvailable'] = True
-        vehicle['customerId'] = None
-        vehicle['coordX'] = customer_coordX
-        vehicle['coordY'] = customer_coordY
 
 
 async def finished_trip(vehicle_id, customer_id, delay):
@@ -74,8 +64,13 @@ async def finished_trip(vehicle_id, customer_id, delay):
             customer_coordY = customer.get('destinationY')
             customers.pop(index)
     logger.info(f"Customer {customer_id} has been dropped off")
-    map(lambda vehicle: dropoff(vehicle, vehicle_id, customer_coordX, customer_coordY), vehicles)
-
+    for vehicle in vehicles:
+        if vehicle.get('id') == vehicle_id:
+            sse_events.append(SseEvents(vehicle=vehicle, event_type="dropoff"))
+            vehicle['isAvailable'] = True
+            vehicle['customerId'] = None
+            vehicle['coordX'] = customer_coordX
+            vehicle['coordY'] = customer_coordY
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -166,6 +161,7 @@ def read_item(scenario_parameters: ScenarioParameters):
                 customers = scenario_response.json()["customers"]
                 speed = scenario_parameters.speed
                 scenario_id = scenario_response.json()["id"]
+                print(f"Current scenario {scenario_id}")
                 return scenario_response.json()
             else:
                 raise HTTPException(status_code=400, detail="Cannot launch scenario")
