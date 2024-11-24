@@ -2,6 +2,8 @@ import json
 from contextlib import asynccontextmanager
 import asyncio
 
+from fastapi.middleware.cors import CORSMiddleware
+
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
@@ -84,6 +86,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
@@ -151,7 +161,7 @@ def read_item(scenario_parameters: ScenarioParameters):
                                   json=scenario_response.json())
         if runner_response.status_code == 200:
             launch_response = request("POST",
-                                      f"http://localhost:8090/Runner/launch_scenario/{runner_response.json()["scenario"]["id"]}?speed={scenario_parameters.speed}")
+                                      f"http://localhost:8090/Runner/launch_scenario/{runner_response.json()['scenario']['id']}?speed={scenario_parameters.speed}")
             if launch_response.status_code == 200:
                 vehicles = scenario_response.json()["vehicles"]
                 customers = scenario_response.json()["customers"]

@@ -12,4 +12,4 @@ class SseEvents(BaseModel):
 class ScenarioParameters(BaseModel):
     vehicles: int
     customers: int
-    speed: int
+    speed: float
