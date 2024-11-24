@@ -46,7 +46,7 @@ async def main_loop():
 
 
 def confirm_runner_termination():
-    global customers, vehicles, scenario_id
+    global customers, vehicles, scenario_id,sse_events, past_scenarios
     if not customers and vehicles and scenario_id not in past_scenarios:
         sse_events.append(SseEvents(vehicle={}, event_type="finish"))
         past_scenarios.add(scenario_id)
